@@ -1,0 +1,16 @@
+﻿# Data
+data/
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+venv/
+.venv/
+
+# Models
+*.pkl
+*.joblib
+
+# OS
+.DS_Store
