@@ -50,10 +50,40 @@ Cross-validated churn recall (5-fold stratified):
 
 ## How to Run
 
+Train the model (produces `models/churn_pipeline.joblib`):
+
 ```bash
 pip install -r requirements.txt
 python src/train.py
 ```
+
+## Deployment (REST API)
+
+The trained model is served via a **FastAPI** app. All preprocessing lives inside
+the scikit-learn `Pipeline` (via `ColumnTransformer`), so the API accepts **raw**
+customer data and there is no training/serving skew.
+
+Run locally:
+
+```bash
+uvicorn src.api:app --host 0.0.0.0 --port 8000
+```
+
+- `GET /health` — liveness check for load balancers / Kubernetes probes.
+- `POST /predict` — send one customer as JSON, get `{churn, churn_probability}`.
+- Interactive docs at `http://localhost:8000/docs` (auto-generated Swagger UI).
+
+Run in Docker:
+
+```bash
+docker build -t churn-api .
+docker run -p 8000:8000 churn-api
+```
+
+> **Production note:** the trained model is a build artifact and is intentionally
+> not committed to git. In a real team it would be published to a model registry
+> (e.g. MLflow) or artifact store (S3/GCS/Artifactory) and pulled by version at
+> build or startup time — decoupling model releases from code releases.
 
 ## Project Structure
 
@@ -67,7 +97,10 @@ churn-prediction/
 │   ├── 03_threshold.ipynb      # precision-recall / threshold analysis
 │   └── 04_xgboost.ipynb        # gradient boosting comparison
 ├── src/
-│   └── train.py                # clean, reproducible training script
+│   ├── train.py                # clean, reproducible training script
+│   └── api.py                  # FastAPI serving app
+├── Dockerfile
+├── .dockerignore
 ├── README.md
 └── requirements.txt
 ```

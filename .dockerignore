@@ -1,0 +1,9 @@
+﻿# Keep the Docker build context small
+notebooks/
+data/
+.git/
+.gitignore
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+README.md
