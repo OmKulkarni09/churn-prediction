@@ -16,19 +16,30 @@ For a subscription business, keeping an existing customer is far cheaper than ac
 
 1. **Data cleaning** — converted `TotalCharges` from text to numeric; discovered 11 blank values all belonged to brand-new customers (`tenure = 0`) and filled them with 0.
 2. **Encoding** — one-hot encoded categorical features (`drop_first=True`); mapped target to 0/1.
-3. **Scaling** — standardized features (mean 0, std 1) for the linear model; fit on train only to avoid data leakage.
-4. **Modeling** — trained and compared Logistic Regression (default), Logistic Regression (class-balanced), and Random Forest (class-balanced).
-5. **Evaluation** — focused on **recall for the churn class**, not accuracy, because of class imbalance and asymmetric business costs.
+3. **Scaling** — standardized features via a `Pipeline` so scaling is fit on training folds only (no data leakage).
+4. **Modeling** — trained and compared Logistic Regression (default), Logistic Regression (class-balanced), Random Forest (class-balanced), and XGBoost (class-balanced).
+5. **Validation** — 5-fold `StratifiedKFold` cross-validation for a trustworthy, stable performance estimate rather than a single train/test split.
+6. **Threshold analysis** — used the precision-recall curve to show how the decision threshold can be tuned to hit a target recall on demand.
+7. **Evaluation** — focused on **recall for the churn class**, not accuracy, because of class imbalance and asymmetric business costs.
 
 ## Results
+
+Held-out test set (20%, stratified):
 
 | Model | Accuracy | Churn Precision | Churn Recall | Churn F1 |
 |---|---|---|---|---|
 | Logistic Regression (default) | 0.82 | 0.69 | 0.60 | 0.64 |
-| **Logistic Regression (balanced)** | 0.75 | 0.52 | **0.82** | 0.64 |
+| **Logistic Regression (balanced)** | 0.74 | 0.51 | **0.79** | 0.62 |
 | Random Forest (balanced) | 0.78 | 0.66 | 0.45 | 0.54 |
 
-**Chosen model: Logistic Regression (class-balanced).** It catches **82% of churners** vs 60% for the default model. Accuracy is lower, but accuracy is the wrong metric here — a model that misses 40% of churners is far more expensive to the business than one that raises a few extra retention offers.
+Cross-validated churn recall (5-fold stratified):
+
+| Model | Mean Recall | Std |
+|---|---|---|
+| **Logistic Regression (balanced)** | **0.804** | 0.016 |
+| XGBoost (balanced) | 0.764 | 0.019 |
+
+**Chosen model: Logistic Regression (class-balanced).** It catches ~80% of churners with a stable, low-variance recall across folds — and notably **outperformed the more complex XGBoost** on this dataset. Accuracy is lower than the default model, but accuracy is the wrong metric here: missing a churner costs far more than a wasted retention offer. The simpler model also wins on interpretability and maintainability.
 
 ## Key Churn Drivers
 
@@ -48,18 +59,22 @@ python src/train.py
 
 ```
 churn-prediction/
-├── data/              # raw data (gitignored)
-├── notebooks/         # exploratory analysis
-│   └── 01_explore.ipynb
+├── data/                       # raw data (gitignored)
+├── models/                     # saved model (gitignored)
+├── notebooks/
+│   ├── 01_explore.ipynb        # EDA + first models
+│   ├── 02_cross_validation.ipynb
+│   ├── 03_threshold.ipynb      # precision-recall / threshold analysis
+│   └── 04_xgboost.ipynb        # gradient boosting comparison
 ├── src/
-│   └── train.py       # clean, reproducible training script
+│   └── train.py                # clean, reproducible training script
 ├── README.md
 └── requirements.txt
 ```
 
 ## Next Steps
 
-- Threshold tuning via the precision-recall curve to hit a target recall.
-- Gradient boosting (XGBoost / LightGBM) with hyperparameter search.
-- SHAP-based feature attribution.
-- Package the model behind a REST API and containerize it.
+- Hyperparameter search (GridSearchCV) to give XGBoost a fair fight.
+- SHAP-based feature attribution for rigorous, leakage-aware interpretation.
+- Package the saved pipeline behind a REST API and containerize it (Docker).
+- Add CI to run the training script and basic tests on each push.
